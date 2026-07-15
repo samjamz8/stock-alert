@@ -1,0 +1,38 @@
+name: Daily Fundamental Screener
+
+on:
+  schedule:
+    # 16:00 IST = 10:30 UTC — after market close (15:30 IST)
+    - cron: "30 10 * * 1-5"   # Mon-Fri only
+  workflow_dispatch: {}        # allows manual "Run workflow" button for testing
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily screener
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+        run: python run_daily.py
+
+      # Shortlist is passed to the intraday workflow as a private build artifact,
+      # NOT committed to git — keeps your daily picks out of the (public) repo history.
+      - name: Upload shortlist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shortlist
+          path: data/shortlist.json
+          retention-days: 2
