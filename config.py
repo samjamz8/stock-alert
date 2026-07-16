@@ -69,5 +69,5 @@ MARKET_CLOSE = "15:30"
 # ---------------------------------------------------------------------------
 SHORTLIST_PATH = "data/shortlist.json"
 NSE_SYMBOL_LIST_URL = (
-    "https://archives.nseindia.com/content/equity/EQUITY_L.csv"
-)
+       "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+   )
