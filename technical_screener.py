@@ -12,6 +12,8 @@ Signals checked per stock:
   4. Short/long moving average crossover (bullish or bearish)
 
 An alert fires when at least config.MIN_SIGNALS_TO_TRIGGER of these agree.
+Each firing alert is also classified Bullish/Caution/Mixed based on which
+direction the signals point, and checked against a "falling knife" guard.
 """
 import json
 import numpy as np
@@ -37,8 +39,40 @@ def load_shortlist() -> list[dict]:
         return json.load(f)
 
 
-def check_stock(symbol: str) -> dict | None:
-    """Returns a trigger dict if signals fire, else None."""
+def _classify(pct_change, rsi, bullish_cross, bearish_cross):
+    """Counts directional votes among price/RSI/MA-cross signals (volume is a
+    neutral amplifier, not counted). Returns ('Bullish setup'|'Caution'|'Mixed signals', emoji)."""
+    bullish_votes = 0
+    bearish_votes = 0
+
+    if pct_change > 0:
+        bullish_votes += 1
+    elif pct_change < 0:
+        bearish_votes += 1
+
+    if rsi is not None:
+        if rsi <= config.RSI_OVERSOLD:
+            bullish_votes += 1  # potential bounce off oversold
+        elif rsi >= config.RSI_OVERBOUGHT:
+            bearish_votes += 1  # potential pullback from overbought
+
+    if bullish_cross:
+        bullish_votes += 1
+    if bearish_cross:
+        bearish_votes += 1
+
+    if bullish_votes > bearish_votes:
+        return "Bullish setup", "🟢"
+    elif bearish_votes > bullish_votes:
+        return "Caution", "🔴"
+    else:
+        return "Mixed signals", "⚠️"
+
+
+def check_stock(stock: dict) -> dict | None:
+    """Returns a trigger dict if signals fire, else None. `stock` is a full
+    shortlist entry (has symbol, sector, market_cap, pays_dividend, etc.)."""
+    symbol = stock["symbol"]
     try:
         hist = yf.Ticker(symbol).history(period="3mo", interval="1d")
         if hist.empty or len(hist) < config.MA_LONG + 1:
@@ -74,14 +108,31 @@ def check_stock(symbol: str) -> dict | None:
         if bearish_cross:
             signals.append(f"{config.MA_SHORT}/{config.MA_LONG} DMA bearish cross")
 
-        if len(signals) >= config.MIN_SIGNALS_TO_TRIGGER:
-            return {
-                "symbol": symbol,
-                "price": round(last_close, 2),
-                "pct_change": pct_change,
-                "signals": signals,
-            }
-        return None
+        if len(signals) < config.MIN_SIGNALS_TO_TRIGGER:
+            return None
+
+        label, emoji = _classify(pct_change, rsi, bullish_cross, bearish_cross)
+
+        # Falling-knife guard: still below its own short-term average = trend
+        # hasn't turned yet, even if RSI looks "oversold".
+        short_ma = close.rolling(config.SHORT_TREND_MA).mean().iloc[-1]
+        still_falling = last_close < short_ma
+
+        return {
+            "symbol": symbol,
+            "sector": stock.get("sector"),
+            "market_cap": stock.get("market_cap"),
+            "pays_dividend": stock.get("pays_dividend"),
+            "pct_above_52w_low": stock.get("pct_above_52w_low"),
+            "price": round(last_close, 2),
+            "pct_change": pct_change,
+            "signals": signals,
+            "label": label,
+            "emoji": emoji,
+            "still_falling": still_falling,
+            "stop_loss": round(last_close * (1 - config.STOP_LOSS_PCT / 100), 2),
+            "target": round(last_close * (1 + config.TARGET_PROFIT_PCT / 100), 2),
+        }
     except Exception:
         return None
 
@@ -90,7 +141,7 @@ def run_technical_screen() -> list[dict]:
     shortlist = load_shortlist()
     triggers = []
     for stock in shortlist:
-        result = check_stock(stock["symbol"])
+        result = check_stock(stock)
         if result:
             triggers.append(result)
     return triggers
