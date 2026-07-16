@@ -60,6 +60,19 @@ MA_LONG = 50
 # together before sending an alert — raise this to reduce noise.
 MIN_SIGNALS_TO_TRIGGER = 2
 
+# "Falling knife" guard: if the stock's last close is still below its own
+# short-term average (SHORT_TREND_MA days), the recent trend is still downward —
+# a RSI-oversold or price-drop trigger in that state is more likely a stock still
+# falling than one bottoming out. Alerts get flagged, not suppressed, so you
+# still see them but know to treat them with extra caution.
+SHORT_TREND_MA = 5
+
+# Purely mechanical reference levels shown alongside each alert — NOT a
+# recommendation, just a % calculation off the trigger price so you have a
+# concrete number to think about. Tune these to your own risk tolerance.
+STOP_LOSS_PCT = 5      # suggested stop-loss = trigger price - this %
+TARGET_PROFIT_PCT = 10  # suggested target  = trigger price + this %
+
 # Market hours (IST) — GitHub Actions cron runs in UTC, conversion handled in workflow files.
 MARKET_OPEN = "09:15"
 MARKET_CLOSE = "15:30"
@@ -69,5 +82,5 @@ MARKET_CLOSE = "15:30"
 # ---------------------------------------------------------------------------
 SHORTLIST_PATH = "data/shortlist.json"
 NSE_SYMBOL_LIST_URL = (
-       "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
-   )
+    "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
+)
