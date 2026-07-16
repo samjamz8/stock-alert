@@ -8,6 +8,19 @@ from fundamentals_screener import run_screener, save_shortlist
 from notifier import notify
 
 
+def _format_cr(value_cr):
+    """Formats a crore-rupee figure using Indian lakh/crore notation."""
+    if value_cr is None:
+        return "N/A"
+    if value_cr >= 100000:
+        return f"₹{value_cr / 100000:.2f}L Cr"
+    return f"₹{value_cr:,.0f} Cr"
+
+
+def _format_price(value):
+    return f"₹{value:,.2f}" if value is not None else "N/A"
+
+
 def format_digest(results: list[dict]) -> str:
     today = datetime.date.today().strftime("%d %b %Y")
     if not results:
@@ -15,13 +28,19 @@ def format_digest(results: list[dict]) -> str:
 
     lines = [f"📊 <b>Accumulation Candidates – {today}</b>", ""]
     for i, r in enumerate(results[:30], start=1):  # cap message length
-        div = "Yes" if r["pays_dividend"] else "No"
+        div = "Y" if r["pays_dividend"] else "N"
+        mcap_cr = round(r["market_cap"] / 1e7, 1) if r.get("market_cap") else None
         rev = f"{r['revenue_growth_yoy_pct']}%" if r["revenue_growth_yoy_pct"] is not None else "N/A"
         profit = f"{r['profit_growth_yoy_pct']}%" if r["profit_growth_yoy_pct"] is not None else "N/A"
+        rev_abs = _format_cr(r.get("revenue_cr"))
+        profit_abs = _format_cr(r.get("profit_cr"))
+
         lines.append(
-            f"{i}. <b>{r['symbol'].replace('.NS','')}</b> — "
-            f"{r['pct_above_52w_low']}% above 52w low | "
-            f"Rev YoY {rev} | Profit YoY {profit} | Div: {div} | {r['sector']}"
+            f"{i}. <b>{r['symbol'].replace('.NS','')}</b> "
+            f"{_format_price(r['price'])} (52w low {_format_price(r['low_52w'])}, +{r['pct_above_52w_low']}%) | "
+            f"MCap {_format_cr(mcap_cr)} | "
+            f"Rev {rev} ({rev_abs}) | PAT {profit} ({profit_abs}) | "
+            f"Div: {div} | {r['sector']}"
         )
     if len(results) > 30:
         lines.append(f"\n...and {len(results) - 30} more in the full shortlist file.")
