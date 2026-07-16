@@ -2,8 +2,12 @@ name: Daily Fundamental Screener
 
 on:
   schedule:
-    # 16:00 IST = 10:30 UTC — after market close (15:30 IST)
-    - cron: "30 10 * * 1-5"   # Mon-Fri only
+    # 9:20 AM IST = 3:50 UTC — market open
+    - cron: "50 3 * * 1-5"
+    # 12:15 PM IST = 6:45 UTC — midday
+    - cron: "45 6 * * 1-5"
+    # 3:15 PM IST = 9:45 UTC — near close
+    - cron: "45 9 * * 1-5"
   workflow_dispatch: {}        # allows manual "Run workflow" button for testing
 
 jobs:
